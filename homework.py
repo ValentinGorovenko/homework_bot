@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 import time
 from http import HTTPStatus
 
@@ -28,19 +29,7 @@ HOMEWORK_VERDICTS = {
 
 def check_tokens():
     """Проверяет доступность переменных окружения."""
-    tokens = {
-        'PRACTICUM_TOKEN': PRACTICUM_TOKEN,
-        'TELEGRAM_TOKEN': TELEGRAM_TOKEN,
-        'TELEGRAM_CHAT_ID': TELEGRAM_CHAT_ID,
-    }
-    for key, value in tokens.items():
-        if value is None:
-            logging.critical(f'{key} отсутствует')
-            return False
-        if value != os.getenv(key):
-            logging.critical(f'не верный {key}')
-            return False
-    return True
+    return all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
 
 
 def send_message(bot, message):
@@ -98,7 +87,7 @@ def parse_status(homework):
 
     homework_status = homework.get('status')
     if homework_status not in HOMEWORK_VERDICTS:
-        raise NameError("Неизвестный статус работы")
+        raise NameError('Неизвестный статус работы')
 
     homework_name = homework.get('homework_name')
     verdict = HOMEWORK_VERDICTS.get(homework_status)
@@ -110,19 +99,21 @@ def main():
     """Основная логика работы бота."""
     logging.info('Бот запущен')
     if not check_tokens():
-        raise SystemExit
+        msg = 'Отсутствует одна или несколько переменных окружения'
+        logging.critical(msg)
+        sys.exit(msg)
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
     while True:
         try:
-            response_result = get_api_answer(timestamp)
-            homeworks = check_response(response_result)
-            logging.info("Список работ получен")
+            response = get_api_answer(timestamp)
+            homeworks = check_response(response)
+            logging.info('Список работ получен')
             if len(homeworks) > 0:
                 send_message(bot, parse_status(homeworks[0]))
-                timestamp = response_result['current_date']
+                timestamp = response['current_date']
             else:
-                logging.info("Новых заданий нет")
+                logging.info('Новых заданий нет')
         except Exception as error:
             message = f'Ошибка: {error}'
             send_message(bot, message)
