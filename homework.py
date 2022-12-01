@@ -15,7 +15,7 @@ PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
-RETRY_PERIOD = 600
+RETRY_PERIOD = 6
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
@@ -45,7 +45,7 @@ def send_message(bot, message):
     """Отправляет сообщение в Telegram чат."""
     try:
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-    except Exception:
+    except telegram.TelegramError:
         logging.error('Ошибка при отправке сообщения')
     else:
         logging.debug('Сообщение успешно отправлено')
@@ -63,7 +63,7 @@ def get_api_answer(timestamp):
     except requests.exceptions.RequestException:
         message = f'Ошибка API: {response.status_code}'
         logging.error(message)
-        raise requests.exceptions.RequestException(message)
+        raise requests.RequestException(message)
 
 
 def check_response(response):
@@ -118,9 +118,9 @@ def main():
             response = get_api_answer(timestamp)
             homeworks = check_response(response)
             logging.info('Список работ получен')
-            if len(homeworks) > 0:
+            if homeworks:
                 send_message(bot, parse_status(homeworks[0]))
-                timestamp = response['current_date']
+                timestamp = response.get('current_date', timestamp)
             else:
                 logging.info('Новых заданий нет')
         except Exception as error:
